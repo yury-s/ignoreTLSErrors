@@ -16,22 +16,8 @@ test.beforeAll(async () => {
     passphrase: 'aaaa',
 
   }, (req, res) => {
-    if (req.url === '/downloadWithDelay') {
-      res.setHeader('Content-Type', 'application/octet-stream');
-      res.setHeader('Content-Disposition', 'attachment; filename=file.txt');
-      res.write('a'.repeat(4096));
-      res.uncork();
-      // Uncomment the following line to make the test pass.
-      // res.end();
-      return;
-    }
-    if (req.url === '/index.html') {
-      res.setHeader('Content-Type', 'text/html');
-      res.end('<a href="/downloadWithDelay">download</a>');
-      return;
-    }
-    res.writeHead(200, { 'Content-Type': 'text/plain' });
-    res.end('hello world\n');
+    res.setHeader('Content-Type', 'text/html');
+    res.end('Hello');
   });
   await new Promise((resolve) => {
     server.listen(port, () => {
@@ -46,16 +32,18 @@ test('ignoreTLSErrors should be isolated between contexts', async ({ browser }) 
     const context = await browser.newContext({ ignoreHTTPSErrors: true });
     const page = await context.newPage();
     await page.goto(serverPrefix + '/index.html');
-    // Click the link to start download.
-    await page.click('a');
-    await context.close();
+    await expect(page.getByText('Hello')).toBeVisible();
+    await page.close();
+    // Closing the context will remove WebsiteDataStore and stop the network process
+    // which will make the test pass.
+    // await context.close();
   }
   {
     const context = await browser.newContext();
     const page = await context.newPage();
     let error = null;
     await page.goto(serverPrefix + '/index.html').catch(e => error = e);
-    expect(error).not.toBe(null);
+    expect(error, 'A TLS error expected, but the request succeeded.').not.toBe(null);
     await context.close();
   }
 });
